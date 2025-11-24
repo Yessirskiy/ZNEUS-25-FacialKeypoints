@@ -1,3 +1,12 @@
+# Dataset
+IdLookupTable.csv
+SampleSubmission.csv
+test.csv
+training.csv
+
+test
+training
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
