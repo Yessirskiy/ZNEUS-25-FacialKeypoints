@@ -6,6 +6,7 @@ training.csv
 
 test
 training
+augmented
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
