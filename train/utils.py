@@ -10,10 +10,6 @@ def compute_metrics(predictions: torch.Tensor, targets: torch.Tensor) -> Dict[st
     """
     Compute evaluation metrics for keypoint predictions.
     
-    Args:
-        predictions: Model predictions (batch_size, 30)
-        targets: Ground truth keypoints (batch_size, 30)
-        
     Returns:
         Dictionary with MSE, MAE, and RMSE metrics
     """
@@ -37,18 +33,7 @@ def get_wandb_run_name(
     custom_name: Optional[str] = None,
 ) -> str:
     """
-    Generate a descriptive WandB run name from hyperparameters.
-    
-    Args:
-        model_name: Name of the model architecture
-        epochs: Number of training epochs
-        lr: Learning rate
-        optimizer: Optimizer name
-        loss_fn: Loss function name
-        custom_name: Optional custom prefix for the run name
-        
-    Returns:
-        Formatted run name string
+    Generate a WandB run name from hyperparameters.
     """
     if custom_name:
         return f"{custom_name}_{model_name}_e{epochs}_lr{lr}_{optimizer}_{loss_fn}"
@@ -62,16 +47,6 @@ def plot_training_history(
     val_metrics: Dict[str, List[float]],
     save_path: str = "training_history.png",
 ) -> None:
-    """
-    Plot training and validation loss/metrics over epochs.
-    
-    Args:
-        train_losses: List of training losses per epoch
-        val_losses: List of validation losses per epoch
-        train_metrics: Dictionary of metric name -> list of training values
-        val_metrics: Dictionary of metric name -> list of validation values
-        save_path: Path to save the plot
-    """
     epochs = range(1, len(train_losses) + 1)
     
     # Create subplots: loss + metrics
@@ -120,17 +95,6 @@ def save_checkpoint(
 ) -> None:
     """
     Save model checkpoint with metadata.
-    
-    Args:
-        model: PyTorch model to save
-        optimizer: Optimizer state
-        epoch: Current epoch number
-        best_val_loss: Best validation loss achieved
-        train_losses: List of training losses
-        val_losses: List of validation losses
-        save_path: Path to save the checkpoint
-        model_name: Name of the model architecture
-        hyperparameters: Dictionary of hyperparameters used
     """
     checkpoint = {
         'epoch': epoch,
@@ -153,14 +117,6 @@ def load_checkpoint(
 ) -> Tuple[nn.Module, Dict]:
     """
     Load model checkpoint.
-    
-    Args:
-        model: PyTorch model instance
-        checkpoint_path: Path to checkpoint file
-        device: Device to load the model on
-        
-    Returns:
-        Tuple of (loaded model, checkpoint metadata)
     """
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -184,7 +140,7 @@ class EarlyStopping:
         Args:
             patience: Number of epochs to wait before stopping
             min_delta: Minimum change in monitored value to qualify as improvement
-            verbose: Whether to print messages
+            verbose: Print messages
         """
         self.patience = patience
         self.min_delta = min_delta
@@ -196,10 +152,8 @@ class EarlyStopping:
     def __call__(self, val_loss: float) -> bool:
         """
         Check if training should stop.
-        
         Args:
             val_loss: Current validation loss
-            
         Returns:
             True if training should stop, False otherwise
         """

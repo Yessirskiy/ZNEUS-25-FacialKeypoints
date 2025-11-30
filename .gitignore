@@ -9,6 +9,9 @@ test
 training
 augmented
 
+models
+wandb
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -216,3 +219,4 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+.env
