@@ -4,6 +4,7 @@ import argparse
 from train import MODELS, train
 
 
+# Replace with dropped train_final.csv hash
 def validateDataset(dataset: str) -> bool:
     REQ_HASH = "e729effacc3ed8c912ebb73e33adb3be"
     with open(dataset, "rb") as f:
