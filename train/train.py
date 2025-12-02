@@ -20,6 +20,7 @@ from .utils import (
     plot_training_history,
     save_checkpoint,
     EarlyStopping,
+    visualize_batch_predictions,
 )
 
 # CONFIG
@@ -108,9 +109,10 @@ def train(
     val_split: float = 0.2,
     early_stop_patience: Optional[int] = 10,
     plot_results: bool = True,
+    auto_visualize: bool = True,
 ):
     """
-    Train a facial keypoint detection model with comprehensive features.
+    Train a facial keypoint detection model.
     
     Args:
         model_name: Name of the model architecture to use
@@ -125,6 +127,7 @@ def train(
         val_split: Fraction of data to use for validation
         early_stop_patience: Patience for early stopping (None to disable)
         plot_results: Whether to generate training plots
+        auto_visualize: Whether to automatically show prediction visualizations after training
     """
     
     # Setup
@@ -187,7 +190,7 @@ def train(
     print(f"Dataset split: {train_size} training, {val_size} validation samples")
     print("=" * 70)
     
-    # ========== Model Setup ==========
+    # Model Setup 
     model = MODELS[model_name]()
     model.to(device)
     
@@ -327,6 +330,35 @@ def train(
             save_path=plot_path
         )
     
+    # Visualize Predictions
+    if auto_visualize:
+        print("\n" + "=" * 70)
+        print("GENERATING PREDICTION VISUALIZATIONS")
+        print("=" * 70)
+        
+        model.eval()
+        with torch.no_grad():
+            # Get a batch from validation set
+            val_iter = iter(val_loader)
+            sample_imgs, sample_targets = next(val_iter)
+            sample_imgs = sample_imgs.to(device)
+            
+            # Generate predictions
+            sample_preds = model(sample_imgs)
+            
+            # Create visualization
+            viz_path = save_model_path.replace(".pth", "_predictions.png")
+            visualize_batch_predictions(
+                images=sample_imgs,
+                predictions=sample_preds,
+                ground_truth=sample_targets,
+                num_samples=min(8, len(sample_imgs)),
+                save_path=viz_path,
+                denormalize=False  # Images are already in [0, 1] range
+            )
+            print(f"Predictions visualization saved to: {viz_path}")
+            print("=" * 70)
+    
     wandb.finish()
     
     return {
@@ -335,4 +367,6 @@ def train(
         "val_losses": val_losses,
         "final_epoch": len(train_losses),
     }
+
+
 

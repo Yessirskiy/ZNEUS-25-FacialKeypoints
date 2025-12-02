@@ -179,3 +179,143 @@ class EarlyStopping:
                 return True
             
             return False
+
+
+def visualize_predictions(
+    image: np.ndarray,
+    predicted_keypoints: np.ndarray,
+    ground_truth_keypoints: Optional[np.ndarray] = None,
+    title: str = "Facial Keypoint Predictions",
+    save_path: Optional[str] = None,
+    show: bool = True,
+) -> None:
+    """
+    Visualize predicted facial keypoints on an image.
+    
+    Args:
+        image: Image array (H, W, C) with values in [0, 1] or [0, 255]
+        predicted_keypoints: Array of shape (30,) containing predicted keypoints [x1, y1, x2, y2, ...]
+        ground_truth_keypoints: Optional array of shape (30,) containing ground truth keypoints
+        title: Title for the plot
+        save_path: Optional path to save the visualization
+        show: Whether to display the plot
+    """
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+    
+    # Normalize image to [0, 1] if needed
+    if image.max() > 1.0:
+        image = image / 255.0
+    
+    ax.imshow(image, cmap='gray' if len(image.shape) == 2 else None)
+    
+    # Reshape keypoints from (30,) to (15, 2)
+    pred_kpts = predicted_keypoints.reshape(-1, 2)
+    
+    # Plot predicted keypoints
+    ax.scatter(pred_kpts[:, 0], pred_kpts[:, 1], c='red', s=100, marker='x', 
+               linewidths=3, label='Predicted', alpha=0.8)
+    
+    # Plot ground truth keypoints if provided
+    if ground_truth_keypoints is not None:
+        gt_kpts = ground_truth_keypoints.reshape(-1, 2)
+        ax.scatter(gt_kpts[:, 0], gt_kpts[:, 1], c='lime', s=50, marker='o', 
+                   alpha=0.7, label='Ground Truth')
+        
+        # Draw lines connecting predicted to ground truth
+        for i in range(len(pred_kpts)):
+            ax.plot([pred_kpts[i, 0], gt_kpts[i, 0]], 
+                   [pred_kpts[i, 1], gt_kpts[i, 1]], 
+                   'yellow', alpha=0.3, linewidth=1)
+    
+    ax.set_title(title, fontsize=14, fontweight='bold')
+    ax.legend(fontsize=10)
+    ax.axis('off')
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Visualization saved to: {save_path}")
+    
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+
+def visualize_batch_predictions(
+    images: torch.Tensor,
+    predictions: torch.Tensor,
+    ground_truth: Optional[torch.Tensor] = None,
+    num_samples: int = 8,
+    save_path: Optional[str] = None,
+    denormalize: bool = True,
+) -> None:
+    """
+    Visualize a batch of predictions in a grid.
+    
+    Args:
+        images: Batch of images (B, C, H, W)
+        predictions: Batch of predicted keypoints (B, 30)
+        ground_truth: Optional batch of ground truth keypoints (B, 30)
+        num_samples: Number of samples to visualize
+        save_path: Optional path to save the visualization
+        denormalize: Whether to denormalize images (assuming ImageNet normalization)
+    """
+    num_samples = min(num_samples, len(images))
+    rows = int(np.ceil(np.sqrt(num_samples)))
+    cols = int(np.ceil(num_samples / rows))
+    
+    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows))
+    axes = axes.flatten() if num_samples > 1 else [axes]
+    
+    # ImageNet normalization constants
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    
+    for idx in range(num_samples):
+        ax = axes[idx]
+        
+        # Get image and convert to numpy (C, H, W) -> (H, W, C)
+        img = images[idx].cpu().numpy().transpose(1, 2, 0)
+        
+        # Denormalize if needed
+        if denormalize:
+            img = img * std + mean
+            img = np.clip(img, 0, 1)
+        
+        # Plot image
+        ax.imshow(img)
+        
+        # Get predicted keypoints
+        pred_kpts = predictions[idx].cpu().numpy().reshape(-1, 2)
+        
+        # Plot predicted keypoints
+        ax.scatter(pred_kpts[:, 0], pred_kpts[:, 1], c='red', s=50, 
+                   marker='x', linewidths=2, label='Predicted', alpha=0.8)
+        
+        # Plot ground truth if provided
+        if ground_truth is not None:
+            gt_kpts = ground_truth[idx].cpu().numpy().reshape(-1, 2)
+            ax.scatter(gt_kpts[:, 0], gt_kpts[:, 1], c='lime', s=30, 
+                       marker='o', alpha=0.7, label='Ground Truth')
+        
+        ax.set_title(f"Sample {idx + 1}", fontsize=10)
+        ax.axis('off')
+        
+        if idx == 0:
+            ax.legend(fontsize=8, loc='upper right')
+    
+    # Hide empty subplots
+    for idx in range(num_samples, len(axes)):
+        axes[idx].axis('off')
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Batch visualization saved to: {save_path}")
+    else:
+        plt.show()
+    
+    plt.close()

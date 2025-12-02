@@ -3,6 +3,7 @@ import hashlib
 import argparse
 from train import MODELS, train
 
+#TODO add final metrics on testing
 
 # Replace with dropped train_final.csv hash
 def validateDataset(dataset: str) -> bool:
@@ -21,7 +22,7 @@ def main():
     # Dataset arguments
     parser.add_argument(
         "-m", "--model", 
-        default="BasicCNN", 
+        default="DeeperCNN", 
         choices=list(MODELS.keys()),
         help="Model architecture to use"
     )
@@ -91,6 +92,11 @@ def main():
         action="store_true",
         help="Disable training plot generation"
     )
+    parser.add_argument(
+        "--no_visualize",
+        action="store_true",
+        help="Disable automatic prediction visualization after training"
+    )
     
     args = parser.parse_args()
     
@@ -130,6 +136,7 @@ def main():
         val_split=args.val_split,
         early_stop_patience=args.early_stop if args.early_stop > 0 else None,
         plot_results=not args.no_plot,
+        auto_visualize=not args.no_visualize,
     )
 
 
