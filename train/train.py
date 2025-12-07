@@ -58,7 +58,7 @@ class FacialKeypointDataset(Dataset):
             img_path = os.path.join(self.augmented_dir, row["ImageId"] + ".png")
         else:
             img_path = os.path.join(self.training_dir, row["ImageId"] + ".png")
-        
+
         img = Image.open(img_path).convert("RGB")
         img = self.transform(img)
 
@@ -76,8 +76,10 @@ def get_optimizer(optimizer_name: str, model_params, lr: float):
         "adamw": torch.optim.AdamW,
     }
     if optimizer_name.lower() not in optimizers:
-        raise ValueError(f"Unknown optimizer: {optimizer_name}. Choose from {list(optimizers.keys())}")
-    
+        raise ValueError(
+            f"Unknown optimizer: {optimizer_name}. Choose from {list(optimizers.keys())}"
+        )
+
     opt_class = optimizers[optimizer_name.lower()]
     if optimizer_name.lower() == "sgd":
         return opt_class(model_params, lr=lr, momentum=0.9)
@@ -91,7 +93,9 @@ def get_loss_function(loss_name: str):
         "smoothl1": nn.SmoothL1Loss,
     }
     if loss_name.lower() not in losses:
-        raise ValueError(f"Unknown loss function: {loss_name}. Choose from {list(losses.keys())}")
+        raise ValueError(
+            f"Unknown loss function: {loss_name}. Choose from {list(losses.keys())}"
+        )
     return losses[loss_name.lower()]()
 
 
@@ -107,11 +111,12 @@ def train(
     loss_fn_name: str = "mse",
     val_split: float = 0.2,
     early_stop_patience: Optional[int] = 10,
+    use_wandb: bool = False,
     plot_results: bool = True,
 ):
     """
     Train a facial keypoint detection model with comprehensive features.
-    
+
     Args:
         model_name: Name of the model architecture to use
         dataset_path: Path to the CSV file with training data
@@ -126,10 +131,13 @@ def train(
         early_stop_patience: Patience for early stopping (None to disable)
         plot_results: Whether to generate training plots
     """
-    
-    # Setup
-    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-    
+
+    device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps" if torch.backends.mps.is_available() else "cpu"
+    )
+
     print("=" * 70)
     print("FACIAL KEYPOINT DETECTION - TRAINING")
     print("=" * 70)
@@ -143,67 +151,77 @@ def train(
     print(f"   - Optimizer: {optimizer_name}")
     print(f"   - Loss Function: {loss_fn_name}")
     print(f"   - Validation Split: {val_split}")
-    print(f"   - Early Stopping: {'Enabled (patience=' + str(early_stop_patience) + ')' if early_stop_patience else 'Disabled'}")
+    print(
+        f"   - Early Stopping: {'Enabled (patience=' + str(early_stop_patience) + ')' if early_stop_patience else 'Disabled'}"
+    )
     print("=" * 70)
-    
-    if WANDB_API_KEY != "YOUR_WANDB_API_KEY":
+
+    run_name = get_wandb_run_name(model_name, epochs, lr, optimizer_name, loss_fn_name)
+
+    if use_wandb and WANDB_API_KEY != "YOUR_WANDB_API_KEY":
         wandb.login(key=WANDB_API_KEY)
-    
-    run_name = get_wandb_run_name(
-        model_name, epochs, lr, optimizer_name, loss_fn_name
-    )
-    
-    wandb.init(
-        project=WANDB_PROJECT,
-        name=run_name,
-        config={
-            "model": model_name,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "learning_rate": lr,
-            "optimizer": optimizer_name,
-            "loss_function": loss_fn_name,
-            "val_split": val_split,
-            "early_stop_patience": early_stop_patience,
-        },
-    )
-    
+
+        wandb.init(
+            project=WANDB_PROJECT,
+            name=run_name,
+            config={
+                "model": model_name,
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "learning_rate": lr,
+                "optimizer": optimizer_name,
+                "loss_function": loss_fn_name,
+                "val_split": val_split,
+                "early_stop_patience": early_stop_patience,
+            },
+        )
+
     save_model_path = f"models/{run_name}_best.pth"
     os.makedirs("models", exist_ok=True)
-    
+
     # Load and Split Dataset
     full_dataset = FacialKeypointDataset(dataset_path, training_dir, augmented_dir)
-    
+
     val_size = int(len(full_dataset) * val_split)
     train_size = len(full_dataset) - val_size
-    
+
     train_dataset, val_dataset = random_split(
-        full_dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42)
+        full_dataset,
+        [train_size, val_size],
+        generator=torch.Generator().manual_seed(42),
     )
-    
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
-    
+
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=2
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=2
+    )
+
     print(f"Dataset split: {train_size} training, {val_size} validation samples")
     print("=" * 70)
-    
+
     # ========== Model Setup ==========
     model = MODELS[model_name]()
     model.to(device)
-    
+
     optimizer = get_optimizer(optimizer_name, model.parameters(), lr)
     loss_fn = get_loss_function(loss_fn_name)
-    
+
     # Early Stopping Setup
-    early_stopping = EarlyStopping(patience=early_stop_patience, verbose=True) if early_stop_patience else None
-    
+    early_stopping = (
+        EarlyStopping(patience=early_stop_patience, verbose=True)
+        if early_stop_patience
+        else None
+    )
+
     # Training Loop
-    best_val_loss = float('inf')
+    best_val_loss = float("inf")
     train_losses = []
     val_losses = []
     train_metrics_history = {"mae": [], "rmse": []}
     val_metrics_history = {"mae": [], "rmse": []}
-    
+
     hyperparameters = {
         "model": model_name,
         "epochs": epochs,
@@ -212,127 +230,146 @@ def train(
         "optimizer": optimizer_name,
         "loss_fn": loss_fn_name,
     }
-    
+
     for epoch in range(epochs):
         # Training Phase
         model.train()
         train_loss = 0.0
         train_preds_all = []
         train_targets_all = []
-        
-        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]", disable=False)
+
+        train_pbar = tqdm(
+            train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]", disable=False
+        )
         for imgs, keypoints in train_pbar:
             imgs, keypoints = imgs.to(device), keypoints.to(device)
-            
+
             preds = model(imgs)
             loss = loss_fn(preds, keypoints)
-            
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
+
             train_loss += loss.item()
             train_preds_all.append(preds.detach().cpu())
             train_targets_all.append(keypoints.detach().cpu())
-            
+
             train_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
-        
+
         avg_train_loss = train_loss / len(train_loader)
         train_losses.append(avg_train_loss)
-        
+
         # Compute training metrics
         train_preds_all = torch.cat(train_preds_all)
         train_targets_all = torch.cat(train_targets_all)
         train_metrics = compute_metrics(train_preds_all, train_targets_all)
         train_metrics_history["mae"].append(train_metrics["mae"])
         train_metrics_history["rmse"].append(train_metrics["rmse"])
-        
+
         # Validation Phase
         model.eval()
         val_loss = 0.0
         val_preds_all = []
         val_targets_all = []
-        
+
         with torch.no_grad():
-            val_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Val]  ", disable=False)
+            val_pbar = tqdm(
+                val_loader, desc=f"Epoch {epoch+1}/{epochs} [Val]  ", disable=False
+            )
             for imgs, keypoints in val_pbar:
                 imgs, keypoints = imgs.to(device), keypoints.to(device)
-                
+
                 preds = model(imgs)
                 loss = loss_fn(preds, keypoints)
-                
+
                 val_loss += loss.item()
                 val_preds_all.append(preds.cpu())
                 val_targets_all.append(keypoints.cpu())
-                
+
                 val_pbar.set_postfix({"loss": f"{loss.item():.4f}"})
-        
+
         avg_val_loss = val_loss / len(val_loader)
         val_losses.append(avg_val_loss)
-        
+
         # Compute validation metrics
         val_preds_all = torch.cat(val_preds_all)
         val_targets_all = torch.cat(val_targets_all)
         val_metrics = compute_metrics(val_preds_all, val_targets_all)
         val_metrics_history["mae"].append(val_metrics["mae"])
         val_metrics_history["rmse"].append(val_metrics["rmse"])
-        
+
         # Logging
         print(f"Epoch {epoch+1}/{epochs} Summary:")
         print(f"   Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
-        print(f"   Train MAE: {train_metrics['mae']:.4f} | Val MAE: {val_metrics['mae']:.4f}")
-        print(f"   Train RMSE: {train_metrics['rmse']:.4f} | Val RMSE: {val_metrics['rmse']:.4f}")
-        
-        wandb.log({
-            "epoch": epoch + 1,
-            "train_loss": avg_train_loss,
-            "val_loss": avg_val_loss,
-            "train_mae": train_metrics["mae"],
-            "val_mae": val_metrics["mae"],
-            "train_rmse": train_metrics["rmse"],
-            "val_rmse": val_metrics["rmse"],
-            "learning_rate": lr,
-        })
-        
+        print(
+            f"   Train MAE: {train_metrics['mae']:.4f} | Val MAE: {val_metrics['mae']:.4f}"
+        )
+        print(
+            f"   Train RMSE: {train_metrics['rmse']:.4f} | Val RMSE: {val_metrics['rmse']:.4f}"
+        )
+
+        if use_wandb:
+            wandb.log(
+                {
+                    "epoch": epoch + 1,
+                    "train_loss": avg_train_loss,
+                    "val_loss": avg_val_loss,
+                    "train_mae": train_metrics["mae"],
+                    "val_mae": val_metrics["mae"],
+                    "train_rmse": train_metrics["rmse"],
+                    "val_rmse": val_metrics["rmse"],
+                    "learning_rate": lr,
+                }
+            )
+
         # Save Best Model
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             save_checkpoint(
-                model, optimizer, epoch, best_val_loss,
-                train_losses, val_losses, save_model_path,
-                model_name, hyperparameters
+                model,
+                optimizer,
+                epoch,
+                best_val_loss,
+                train_losses,
+                val_losses,
+                save_model_path,
+                model_name,
+                hyperparameters,
             )
             print(f"New best validation loss: {best_val_loss:.4f}")
-        
+
         # Early Stopping Check
         if early_stopping and early_stopping(avg_val_loss):
             print(f"\nEarly stopping triggered at epoch {epoch+1}")
             break
-        
+
         print("-" * 70)
-    
+
     # Final Results
     print("=" * 70)
     print("TRAINING COMPLETE")
     print(f"Best Validation Loss: {best_val_loss:.4f}")
     print(f"Model saved to: {save_model_path}")
     print("=" * 70)
-    
+
     # Plot Results
     if plot_results:
         plot_path = save_model_path.replace(".pth", "_history.png")
         plot_training_history(
-            train_losses, val_losses,
-            train_metrics_history, val_metrics_history,
-            save_path=plot_path
+            train_losses,
+            val_losses,
+            train_metrics_history,
+            val_metrics_history,
+            save_path=plot_path,
         )
-    
-    wandb.finish()
-    
+
+    if use_wandb:
+        wandb.finish()
+
     return {
         "best_val_loss": best_val_loss,
         "train_losses": train_losses,
         "val_losses": val_losses,
         "final_epoch": len(train_losses),
     }
-
