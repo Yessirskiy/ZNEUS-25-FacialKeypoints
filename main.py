@@ -14,7 +14,7 @@ def main():
     parser.add_argument(
         "-m",
         "--model",
-        default="BasicCNN",
+        default="DeeperCNN",
         choices=list(MODELS.keys()),
         help="Model architecture to use",
     )
@@ -116,6 +116,7 @@ def main():
         early_stop_patience=args.early_stop if args.early_stop > 0 else None,
         use_wandb=args.wandb,
         plot_results=not args.no_plot,
+        auto_visualize=not args.no_visualize,
     )
 
 

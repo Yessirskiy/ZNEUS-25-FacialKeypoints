@@ -3,7 +3,7 @@ import torch
 import cv2
 import numpy as np
 import random
-from train import PyramidCNN
+from train import WiderCNN
 
 
 def draw_cross(image, x, y, color, size=2, thickness=1):
@@ -25,7 +25,7 @@ def main():
     args = parser.parse_args()
 
     state = torch.load(args.model_path, map_location="cpu")
-    model = PyramidCNN()
+    model = WiderCNN()
     model.load_state_dict(state["model_state_dict"])
     model.eval()
 

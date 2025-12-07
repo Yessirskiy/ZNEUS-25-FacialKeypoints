@@ -20,7 +20,9 @@ class BasicCNN(nn.Module):
         )
 
         self.fc = nn.Sequential(
-            nn.Linear(128 * 12 * 12, 512), nn.ReLU(), nn.Linear(512, 30)
+            nn.Linear(128 * 12 * 12, 512), 
+            nn.ReLU(), 
+            nn.Linear(512, 30)
         )
 
     def forward(self, x):
