@@ -78,6 +78,11 @@ def main():
     parser.add_argument(
         "--no_plot", action="store_true", help="Disable training plot generation"
     )
+    parser.add_argument(
+        "--no_visualize",
+        action="store_true",
+        help="Disable automatic prediction visualization after training",
+    )
 
     args = parser.parse_args()
 
