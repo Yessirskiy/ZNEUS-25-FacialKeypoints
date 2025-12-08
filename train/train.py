@@ -70,21 +70,26 @@ class FacialKeypointDataset(Dataset):
 
 
 def get_optimizer(optimizer_name: str, model_params, lr: float):
-    """Get optimizer by name."""
     optimizers = {
         "adam": torch.optim.Adam,
         "sgd": torch.optim.SGD,
         "adamw": torch.optim.AdamW,
     }
-    if optimizer_name.lower() not in optimizers:
+
+    name = optimizer_name.lower()
+    if name not in optimizers:
         raise ValueError(
             f"Unknown optimizer: {optimizer_name}. Choose from {list(optimizers.keys())}"
         )
 
-    opt_class = optimizers[optimizer_name.lower()]
-    if optimizer_name.lower() == "sgd":
-        return opt_class(model_params, lr=lr, momentum=0.9)
-    return opt_class(model_params, lr=lr)
+    opt_class = optimizers[name]
+    weight_decay = 1e-4
+
+    if name == "sgd":
+        return opt_class(model_params, lr=lr, momentum=0.9, weight_decay=weight_decay)
+    if name == "adamw":
+        return opt_class(model_params, lr=lr, weight_decay=weight_decay)
+    return opt_class(model_params, lr=lr, weight_decay=weight_decay)
 
 
 def get_loss_function(loss_name: str):
@@ -322,6 +327,8 @@ def train(
                     "val_mae": val_metrics["mae"],
                     "train_rmse": train_metrics["rmse"],
                     "val_rmse": val_metrics["rmse"],
+                    "val_nme": val_metrics["nme"],
+                    "val_pck": val_metrics["pck"],
                     "learning_rate": lr,
                 }
             )
@@ -396,7 +403,8 @@ def train(
             print(f"Predictions visualization saved to: {viz_path}")
             print("=" * 70)
 
-    wandb.finish()
+    if use_wandb:
+        wandb.finish()
 
     return {
         "best_val_loss": best_val_loss,

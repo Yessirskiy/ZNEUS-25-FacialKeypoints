@@ -101,7 +101,7 @@ def main():
     print("\n" + "=" * 70)
     print("CONFIGURATION VALIDATED")
     print("=" * 70)
-    print(f"Dataset: {args.dataset} (hash verified)")
+    print(f"Dataset: {args.dataset}")
     print(f"Training images: {args.training_dir}")
     print(f"Augmented images: {args.augmented_dir}")
     print(f"Model: {args.model}")

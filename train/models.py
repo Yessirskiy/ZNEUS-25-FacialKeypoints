@@ -20,9 +20,7 @@ class BasicCNN(nn.Module):
         )
 
         self.fc = nn.Sequential(
-            nn.Linear(128 * 12 * 12, 512), 
-            nn.ReLU(), 
-            nn.Linear(512, 30)
+            nn.Linear(128 * 12 * 12, 512), nn.ReLU(), nn.Linear(512, 30)
         )
 
     def forward(self, x):
@@ -33,7 +31,7 @@ class BasicCNN(nn.Module):
 
 class DeeperCNN(nn.Module):
     """
-    Enhanced CNN with 5 convolutional layers, batch normalization, 
+    Enhanced CNN with 5 convolutional layers, batch normalization,
     dropout, and residual-like skip connections.
     """
 
@@ -201,10 +199,12 @@ class PyramidCNN(nn.Module):
         # Pyramid block 1
         self.pyramid1_1x1 = nn.Conv2d(64, 32, kernel_size=1)
         self.pyramid1_3x3 = nn.Sequential(
-            nn.Conv2d(64, 32, kernel_size=1), nn.Conv2d(32, 32, kernel_size=3, padding=1)
+            nn.Conv2d(64, 32, kernel_size=1),
+            nn.Conv2d(32, 32, kernel_size=3, padding=1),
         )
         self.pyramid1_5x5 = nn.Sequential(
-            nn.Conv2d(64, 32, kernel_size=1), nn.Conv2d(32, 32, kernel_size=5, padding=2)
+            nn.Conv2d(64, 32, kernel_size=1),
+            nn.Conv2d(32, 32, kernel_size=5, padding=2),
         )
         self.pyramid1_pool = nn.Sequential(
             nn.MaxPool2d(3, stride=1, padding=1), nn.Conv2d(64, 32, kernel_size=1)
@@ -220,10 +220,12 @@ class PyramidCNN(nn.Module):
         # Pyramid block 2
         self.pyramid2_1x1 = nn.Conv2d(128, 64, kernel_size=1)
         self.pyramid2_3x3 = nn.Sequential(
-            nn.Conv2d(128, 64, kernel_size=1), nn.Conv2d(64, 64, kernel_size=3, padding=1)
+            nn.Conv2d(128, 64, kernel_size=1),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
         )
         self.pyramid2_5x5 = nn.Sequential(
-            nn.Conv2d(128, 64, kernel_size=1), nn.Conv2d(64, 64, kernel_size=5, padding=2)
+            nn.Conv2d(128, 64, kernel_size=1),
+            nn.Conv2d(64, 64, kernel_size=5, padding=2),
         )
 
         self.pyramid2_bn = nn.Sequential(
@@ -281,9 +283,100 @@ class PyramidCNN(nn.Module):
         return x
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, stride=1):
+        super().__init__()
+
+        self.conv1 = nn.Conv2d(in_channels, out_channels, 3, stride=stride, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+
+        self.conv2 = nn.Conv2d(out_channels, out_channels, 3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, 1, stride=stride),
+                nn.BatchNorm2d(out_channels),
+            )
+
+    def forward(self, x):
+        identity = self.shortcut(x)
+
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+
+        out += identity
+        out = F.relu(out)
+
+        return out
+
+
+class ResidualCNN(nn.Module):
+    def __init__(self, dropout_rate=0.3):
+        super().__init__()
+
+        self.stem = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+        )
+
+        self.layer1 = nn.Sequential(
+            ResidualBlock(32, 32),
+            ResidualBlock(32, 32),
+            nn.MaxPool2d(2),
+        )
+
+        self.layer2 = nn.Sequential(
+            ResidualBlock(32, 64),
+            ResidualBlock(64, 64),
+            nn.MaxPool2d(2),
+        )
+
+        self.layer3 = nn.Sequential(
+            ResidualBlock(64, 128),
+            ResidualBlock(128, 128),
+            nn.MaxPool2d(2),
+        )
+
+        self.layer4 = nn.Sequential(
+            ResidualBlock(128, 256),
+            ResidualBlock(256, 256),
+            nn.MaxPool2d(2),
+        )
+
+        self.layer5 = nn.Sequential(
+            ResidualBlock(256, 512),
+            nn.MaxPool2d(2),
+        )
+
+        self.fc = nn.Sequential(
+            nn.Linear(512 * 3 * 3, 1024),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(512, 30),
+        )
+
+    def forward(self, x):
+        x = self.stem(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.layer5(x)
+
+        x = x.view(x.size(0), -1)
+        return self.fc(x)
+
+
 MODELS = {
     "BasicCNN": BasicCNN,
     "DeeperCNN": DeeperCNN,
     "WiderCNN": WiderCNN,
     "PyramidCNN": PyramidCNN,
+    "ResidualCNN": ResidualCNN,
 }
